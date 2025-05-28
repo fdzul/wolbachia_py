@@ -1,0 +1,320 @@
+---
+title: "Programa de Prevención y Control del Dengue (CENAPRECE) | 2025"
+format: 
+  dashboard:
+    nav-buttons: [twitter, github, facebook]
+theme: custom.scss
+---
+
+```{r setup}
+library(sf)
+mapview::mapviewOptions(default = TRUE,
+                        basemaps.color.shuffle = FALSE)
+# Step 1. extract the hexagon H3 of merida ####
+load("~/Dropbox/projects/UADY/wolbachia_hotspots/8.RData/hexagon_h3/hexagon_h3.RData")
+
+#  Step 2. load the dengue geocoded dataset ####
+load("~/Dropbox/projects/UADY/wolbachia_hotspots/8.RData/geocoded_dataset_py.RData")
+
+```
+
+# [**Focos de Transmisión Persitente**]{style="font-size:2pt"}
+
+:::::::::: panel-tabset
+### [**Mérida**]{style="color:#990000"}
+
+<html>
+
+<head>
+
+```{=html}
+<style>
+body {
+  margin: 0px;
+  width: auto; 
+  height: auto;
+}
+
+.wrapper {
+    display: grid;
+    grid-gap: 1px;
+    grid-template-columns: 225px 225px 225px 410px;
+    grid-template-rows: 95px 95px 95px 130px;
+    background-color: #772953;
+    color: "#772953";
+  }
+
+  .box {
+    background-color: #772953;
+    color: "#772953";
+    border-radius: 1px;
+    padding: 2px;
+    font-size: 100%;
+  }
+
+  .a {
+    grid-column: 1 / 4;
+    grid-row: 1 / 4;
+  }
+  .b {
+    grid-column: 4 ;
+    grid-row: 1 / 3;
+  }
+  .c {
+    grid-column: 4 ;
+    grid-row: 3 / 5 ;
+  }
+  .d {
+    grid-column: 3;
+    grid-row: 4;
+  }
+  .e {
+    grid-column: 2;
+    grid-row: 4;
+  }
+  .f {
+    grid-column: 1;
+    grid-row: 4;
+  }
+</style>
+```
+
+</head>
+
+<body>
+
+::::::::: wrapper
+::: {.box .a}
+```{r hotspots_dengue_guadalajara}
+# Step 1. extract the locality ####
+# Step 3. Count the cases by hexagons ####
+library(magrittr)
+x <- denhotspots::point_to_polygons(x = xy,
+                                    y = h3_merida, ##
+                                    ids = c("h3","population"),
+                                    time = ANO,
+                                    coords = c("long", "lat"),
+                                    crs = 4326,
+                                    dis = "DENV")
+sf::st_geometry(x) <- "geometry"
+
+
+# Step 4. calculate the hotspots #####
+hotspots <- dplyr::bind_cols(denhotspots::gihi(x = x,
+                                   id = c("h3","population"), 
+                                   time = "year",
+                                   dis = "DENV",
+                                   gi_hi = "gi",
+                                   alpha = 0.95),
+                 x |> sf::st_drop_geometry() |>
+                     dplyr::select(-h3,-population))
+
+
+# Step 5,. extrac blocks####
+hotspots_in <- hotspots |>
+    dplyr::filter(intensity_gi >= 1)
+
+load("~/Dropbox/projects/UADY/wolbachia_hotspots/8.RData/blocks_sectores/block_sectores_py.RData")
+
+manz <- blocks_merida$block[hotspots_in,] |>
+    dplyr::filter(manzana != 101)
+#sectores_merida <- sectores_merida$block[hotspots_in,]
+
+pal <- rcartocolor::carto_pal(n = max(hotspots$intensity_gi), 
+                              name = "OrYel")
+mapview::mapview(hotspots,
+                 zcol = "intensity_gi",
+                 layer.name = "Intensidad",
+                 label = FALSE,
+                 color = "white",
+                 lwd = 0.5, 
+                 col.regions = pal) +
+    mapview::mapview(manz,
+                     layer.name = "Manzanas",
+                     label = FALSE,
+                     color = "white",
+                     col.regions = "green",
+                     alpha.regions = .2,
+                     lwd = 0.5)
+
+```
+:::
+
+::: {.box .b}
+```{r forest_plot_merida, dpi = 300, fig.height= 5,fig.width = 7,fig.align = "center", out.height='100%', out.width = '100%',fig.show = "hold"}
+ 
+# Logistic Regression
+hotspots <- hotspots |>
+    #dplyr::mutate(DENV_2008_2010 = DENV_2008 + DENV_2009 + DENV_2010) |>
+    dplyr::mutate(DENV_2014_2015 = DENV_2014 + DENV_2015) |>
+    dplyr::mutate(DENV_2016_2017 = DENV_2016 + DENV_2017) |>
+    dplyr::mutate(DENV_2018_2019 = DENV_2018 +  DENV_2019) |>
+    dplyr::mutate(DENV_2020_2022 = DENV_2020 +  DENV_2021 + DENV_2022) |>
+    dplyr::mutate(DENV_2023_2024 = DENV_2023 +  DENV_2024) 
+
+
+# Logistic Regression
+glm.fit <- glm(hotspots_gi~DENV_2014_2015 +
+                   DENV_2016_2017 + DENV_2018_2019 +
+                   DENV_2020_2022 + DENV_2023_2024,
+               data = hotspots, 
+               family = binomial)
+
+result <- parameters::model_parameters(glm.fit, 
+                                       exponentiate = TRUE)
+
+plotly::ggplotly(plot(result) +
+                     ggplot2::theme(axis.text.y = ggplot2::element_text(size = 8),
+                                    axis.text.x = ggplot2::element_text(size = 8),
+                                    axis.title = ggplot2::element_text(size = 8),
+                                    plot.margin = ggplot2::unit(c(0,0,0,0), "cm")) +
+                     ggplot2::scale_y_discrete(labels = c("2014-2015", 
+                                                          "2016-2017",
+                                                          "2018-2019",
+                                                          "2020-2022",
+                                                          "2023-2024")))
+
+```
+:::
+
+::: {.box .c}
+```{r power_law_plot_merida,dpi = 300, warning=FALSE, fig.align = "center", out.width = '100%',out.height='100%',fig.show = "hold"}
+# Step 7. make the function por calculate the cumulative ####
+funcumsum <- function(x){
+    x$cumulative_n <- cumsum(x$n_cases)
+    x$perc_cumsum_n <- round((cumsum(x$n_cases)/sum(x$n_cases))*100, digits = 1)
+    #x$cumulative_ha <- cumsum(x$ha)
+    #x$perc_cumsum_ha <- round((cumsum(x$ha)/sum(x$ha))*100, digits = 1)
+    x$id <- 1
+    x$id_cumsum <- cumsum(x$id)
+    x$id_perc_cum <- round((cumsum(x$id)/nrow(x))*100, digits = 1)
+    x
+}
+# step 8.
+data_pareto <- hotspots   |>
+    # sf::st_drop_geometry()  |>
+    # dplyr::mutate(n_cases = rowSums(dplyr::select(., dplyr::starts_with("DENV"))),
+    #              loc = "locality")
+    #dplyr::mutate(n_cases = rowSums(dplyr::across(DENV_2008:DENV_2021)),
+    #              loc = "locality")  |>
+    dplyr::mutate(n_cases = rowSums(dplyr::across(dplyr::starts_with("DENV"))),
+                  loc = "locality") |>
+    
+    dplyr::select(loc, n_cases, hotspots_gi)  |>
+    dplyr::arrange(loc, desc(hotspots_gi), desc(n_cases))  |>
+    dplyr::group_by(loc)  |>
+    tidyr::nest()  |>
+    dplyr::mutate(pareto_cases = purrr::map(data,
+                                            funcumsum))  |>
+    dplyr::select(-data)  |>
+    tidyr::unnest(cols = c(pareto_cases))
+
+# step 4. visualization of pareto rules 
+plotly::ggplotly(denhotspots::power_law_plot(x = data_pareto) +
+                  ggplot2::theme(axis.text.y = ggplot2::element_text(size = 8),
+                                 axis.text.x = ggplot2::element_text(size = 8),
+                       axis.title = ggplot2::element_text(size = 8),
+                      plot.margin = ggplot2::unit(c(0,0,0,0), "cm")))  |> 
+  plotly::layout(showlegend = FALSE)
+
+
+
+
+
+
+```
+:::
+
+::: {.box .d}
+```{r gauge_blocks_merida,fig.align = "center", out.height='90%', out.width = '90%'}
+y_hot <- hotspots |> dplyr::filter(hotspots_gi == 1)
+centroid <- rgeomex::blocks_ine20_mx_centroid |>
+  sf::st_as_sf(coords = c("x", "y"), crs = 4326)
+b_loc <- centroid[hotspots, ]
+b_hot <- b_loc[y_hot, ]
+flexdashboard::gauge(round((nrow(b_hot)/nrow(b_loc))*100, digits = 1),
+                     min = 0, max = 100, 
+                     symbol = '%', 
+                     label = "Manzanas",
+                     flexdashboard::gaugeSectors(success = c(0, 30), 
+                                                 warning = c(31, 50), 
+                                                 danger = c(51, 100),
+                                                 colors = c("#11BB33", #"#63C1A0", 
+                                                            "#FC8427",
+                                                            "#E01A59")))
+```
+:::
+
+::: {.box .e}
+```{r gauge_AGEB_guadalajara, fig.align = "center", out.height='90%', out.width = '90%'}
+
+y <- hotspots  |>
+    sf::st_drop_geometry() |>
+     dplyr::mutate(n_cases = rowSums(dplyr::across(dplyr::starts_with("DENV"))),
+                  loc = "locality") |>
+    dplyr::select(loc, n_cases, hotspots_gi) 
+y_hot <- y |>dplyr::filter(hotspots_gi == 1)
+  
+flexdashboard::gauge(round((nrow(y_hot)/nrow(y))*100, digits = 1),
+      min = 0, max = 100, 
+      symbol = '%', 
+      label = "AGEBs",
+      flexdashboard::gaugeSectors(success = c(0, 30), 
+                                  warning = c(31, 50), 
+                                  danger = c(51, 100),
+                                  colors = c("#11BB33",
+                                             "#FC8427",
+                                             "#E01A59")))
+```
+:::
+
+::: {.box .f}
+```{r gauge_casos_guadalajara, out.height='90%', out.width = '90%', fig.align = "center"}
+
+y <- hotspots  |>
+    sf::st_drop_geometry() |>
+      dplyr::mutate(n_cases = rowSums(dplyr::across(dplyr::starts_with("DENV"))),
+                  loc = "locality") |>
+    dplyr::select(loc, n_cases, hotspots_gi) 
+y_hot <- y |>dplyr::filter(hotspots_gi == 1)
+
+flexdashboard::gauge(round((sum(y_hot$n_cases)/sum(y$n_cases))*100, digits = 1),
+      min = 0, max = 100, 
+      symbol = '%', 
+      label = "Casos de Dengue",
+      flexdashboard::gaugeSectors(success = c(11, 100), 
+                                  warning = c(6, 10), 
+                                  danger = c(0, 5),
+                                  colors = c("#11BB33", 
+                                             "#FC8427",
+                                             "#E01A59")))
+```
+:::
+:::::::::
+
+</body>
+
+</html>
+
+### [**Campeche**]{style="color:#990000"}
+
+```{r hotspots_campeche}
+
+```
+
+### [**Cancún**]{style="color:#990000"}
+
+```{r hotspots_cancun}
+
+```
+::::::::::
+
+# [**Focos de Transmisión Activa**]{style="font-size:2pt"}
+
+::: panel-tabset
+### [**Mérida**]{style="color:#990000"}
+
+```{r mapas_calor_merida}
+
+```
+:::
