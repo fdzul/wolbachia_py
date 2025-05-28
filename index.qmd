@@ -20,7 +20,7 @@ load("~/Dropbox/projects/UADY/wolbachia_hotspots/8.RData/blocks_sectores/block_s
 
 ```
 
-# [**Focos de Transmisión Persitente**]{style="font-size:2pt"}
+# [**Focos de Transmisión Persistente**]{style="font-size:2pt"}
 
 :::::::::: panel-tabset
 
